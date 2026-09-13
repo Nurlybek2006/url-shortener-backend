@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LinkStatus {
+  ACTIVE
+  EXPIRED
+  DISABLED
+  PASSWORD_PROTECTED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(USER)
+
+  links     Link[]
+
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model Link {
+  id          String     @id @default(uuid())
+  slug        String     @unique
+  originalUrl String     @db.Text
+  title       String?
+
+  status      LinkStatus @default(ACTIVE)
+  password    String?
+
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt   DateTime?
+  maxClicks   Int?
+  clickCount  Int        @default(0)
+
+  tags        String[]
+  qrCodeUrl   String?
+
+  clicks      Click[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Click {
+  id        String @id @default(uuid())
+
+  linkId    String
+  link      Link   @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  clickedAt DateTime @default(now())
+
+  ip        String
+  userAgent String? @db.Text
+
+  browser   String?
+  os        String?
+  device    String?
+
+  country   String?
+  city      String?
+
+  referer     String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
+  @@index([linkId, clickedAt])
+  @@index([clickedAt])
+  @@index([country])
+}
