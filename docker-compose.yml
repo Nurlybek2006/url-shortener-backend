@@ -1,3 +1,5 @@
+name: url-shortener
+
 services:
   postgres:
     image: postgres:16
