@@ -100,6 +100,8 @@ async function getProfile(userId) {
   if (!user) {
     throw new AppError("User not found", 404);
   }
+  
+  
 
   return user;
 }
