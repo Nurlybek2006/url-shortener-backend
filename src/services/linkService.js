@@ -248,4 +248,3 @@ module.exports = {
   updateLink,
   deleteLink,
 };
-
