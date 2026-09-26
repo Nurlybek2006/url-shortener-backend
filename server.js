@@ -4,6 +4,8 @@ const prisma = require("./src/config/database");
 const redis = require("./src/config/redis");
 const env = require("./src/config/env");
 
+require("./src/queues/analyticsWorker");
+
 async function startServer() {
   try {
     await prisma.$connect();
