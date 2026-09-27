@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const path = require("path");
 
 const authRoutes = require("./routes/authRoutes");
 const linkRoutes = require("./routes/linkRoutes");
@@ -42,6 +43,8 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/links", linkRoutes);
 app.use("/api", analyticsRoutes);
+
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/", redirectRoutes);
 

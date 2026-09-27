@@ -178,10 +178,32 @@ const verifyPasswordValidator = [
     .withMessage("Password is required"),
 ];
 
+const qrValidator = [
+  body("size")
+    .optional()
+    .isInt({
+      min: 128,
+      max: 2048,
+    })
+    .withMessage("QR size must be between 128 and 2048")
+    .toInt(),
+
+  body("darkColor")
+    .optional()
+    .matches(/^#[0-9A-Fa-f]{6}$/)
+    .withMessage("Invalid dark color"),
+
+  body("lightColor")
+    .optional()
+    .matches(/^#[0-9A-Fa-f]{6}$/)
+    .withMessage("Invalid light color"),
+];
+
 module.exports = {
   createLinkValidator,
   updateLinkValidator,
   linkIdValidator,
   linkListValidator,
   verifyPasswordValidator,
+  qrValidator,
 };

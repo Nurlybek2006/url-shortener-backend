@@ -7,6 +7,7 @@ const {
   updateLink,
   deleteLink,
   toggleLink,
+  generateQR,
 } = require("../controllers/linkController");
 
 const {
@@ -14,6 +15,7 @@ const {
   updateLinkValidator,
   linkIdValidator,
   linkListValidator,
+  qrValidator,
 } = require("../validators/linkValidator");
 
 const auth = require("../middleware/auth");
@@ -39,6 +41,8 @@ router.patch(
 );
 
 router.post("/:id/toggle", linkIdValidator, validate, toggleLink);
+
+router.post("/:id/qr", linkIdValidator, qrValidator, validate, generateQR);
 
 router.delete("/:id", linkIdValidator, validate, deleteLink);
 

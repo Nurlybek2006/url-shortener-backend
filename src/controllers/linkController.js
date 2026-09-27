@@ -1,5 +1,7 @@
 const linkService = require("../services/linkService");
 
+const qrService = require("../services/qrService");
+
 async function createLink(req, res, next) {
   try {
     const link = await linkService.createLink(req.user.userId, req.body);
@@ -97,6 +99,25 @@ async function toggleLink(req, res, next) {
   }
 }
 
+async function generateQR(req, res, next) {
+  try {
+    const result = await qrService.generateQRCode(
+      req.params.id,
+      req.user.userId,
+      req.body,
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "QR code generated successfully",
+
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createLink,
   getLinks,
@@ -104,4 +125,5 @@ module.exports = {
   updateLink,
   deleteLink,
   toggleLink,
+  generateQR,
 };
