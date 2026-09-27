@@ -8,6 +8,7 @@ const morgan = require("morgan");
 const authRoutes = require("./routes/authRoutes");
 const linkRoutes = require("./routes/linkRoutes");
 const redirectRoutes = require("./routes/redirectRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
 
@@ -40,6 +41,7 @@ app.get("/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/links", linkRoutes);
+app.use("/api", analyticsRoutes);
 
 app.use("/", redirectRoutes);
 

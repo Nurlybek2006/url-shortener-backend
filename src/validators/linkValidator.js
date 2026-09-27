@@ -59,9 +59,7 @@ const createLinkValidator = [
       if (
         !tags.every(
           (tag) =>
-            typeof tag === "string" &&
-            tag.length > 0 &&
-            tag.length <= 50
+            typeof tag === "string" && tag.length > 0 && tag.length <= 50,
         )
       ) {
         throw new Error("Each tag must be 1-50 characters");
@@ -69,6 +67,14 @@ const createLinkValidator = [
 
       return true;
     }),
+
+  body("password")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Password must be a string")
+    .bail()
+    .isLength({ min: 4, max: 100 })
+    .withMessage("Password must be between 4 and 100 characters"),
 ];
 
 const updateLinkValidator = [
@@ -129,9 +135,7 @@ const updateLinkValidator = [
       if (
         !tags.every(
           (tag) =>
-            typeof tag === "string" &&
-            tag.length > 0 &&
-            tag.length <= 50
+            typeof tag === "string" && tag.length > 0 && tag.length <= 50,
         )
       ) {
         throw new Error("Each tag must be 1-50 characters");
@@ -139,13 +143,17 @@ const updateLinkValidator = [
 
       return true;
     }),
+
+  body("password")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Password must be a string")
+    .bail()
+    .isLength({ min: 4, max: 100 })
+    .withMessage("Password must be between 4 and 100 characters"),
 ];
 
-const linkIdValidator = [
-  param("id")
-    .isUUID()
-    .withMessage("Invalid link ID"),
-];
+const linkIdValidator = [param("id").isUUID().withMessage("Invalid link ID")];
 
 const linkListValidator = [
   query("page")
@@ -161,9 +169,19 @@ const linkListValidator = [
     .toInt(),
 ];
 
+const verifyPasswordValidator = [
+  body("password")
+    .isString()
+    .withMessage("Password is required")
+    .bail()
+    .notEmpty()
+    .withMessage("Password is required"),
+];
+
 module.exports = {
   createLinkValidator,
   updateLinkValidator,
   linkIdValidator,
   linkListValidator,
+  verifyPasswordValidator,
 };

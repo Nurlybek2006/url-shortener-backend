@@ -2,10 +2,7 @@ const linkService = require("../services/linkService");
 
 async function createLink(req, res, next) {
   try {
-    const link = await linkService.createLink(
-      req.user.userId,
-      req.body
-    );
+    const link = await linkService.createLink(req.user.userId, req.body);
 
     res.status(201).json({
       success: true,
@@ -21,10 +18,7 @@ async function createLink(req, res, next) {
 
 async function getLinks(req, res, next) {
   try {
-    const result = await linkService.getLinks(
-      req.user.userId,
-      req.query
-    );
+    const result = await linkService.getLinks(req.user.userId, req.query);
 
     res.status(200).json({
       success: true,
@@ -37,10 +31,7 @@ async function getLinks(req, res, next) {
 
 async function getLinkById(req, res, next) {
   try {
-    const link = await linkService.getLinkById(
-      req.params.id,
-      req.user.userId
-    );
+    const link = await linkService.getLinkById(req.params.id, req.user.userId);
 
     res.status(200).json({
       success: true,
@@ -58,7 +49,7 @@ async function updateLink(req, res, next) {
     const link = await linkService.updateLink(
       req.params.id,
       req.user.userId,
-      req.body
+      req.body,
     );
 
     res.status(200).json({
@@ -75,14 +66,31 @@ async function updateLink(req, res, next) {
 
 async function deleteLink(req, res, next) {
   try {
-    const result = await linkService.deleteLink(
-      req.params.id,
-      req.user.userId
-    );
+    const result = await linkService.deleteLink(req.params.id, req.user.userId);
 
     res.status(200).json({
       success: true,
       ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function toggleLink(req, res, next) {
+  try {
+    const link = await linkService.toggleLink(req.params.id, req.user.userId);
+
+    res.status(200).json({
+      success: true,
+      message:
+        link.status === "ACTIVE"
+          ? "Link activated successfully"
+          : "Link disabled successfully",
+
+      data: {
+        link,
+      },
     });
   } catch (error) {
     next(error);
@@ -95,4 +103,5 @@ module.exports = {
   getLinkById,
   updateLink,
   deleteLink,
+  toggleLink,
 };

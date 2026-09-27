@@ -6,26 +6,25 @@ const env = require("../config/env");
 
 const AppError = require("../utils/AppError");
 
-const {
-  generateUniqueSlug,
-} = require("../utils/slugGenerator");
+const { generateUniqueSlug } = require("../utils/slugGenerator");
+
+const { hashPassword } = require("../utils/bcrypt");
 
 function formatLink(link) {
+  const { password, ...safeLink } = link;
+
   return {
-    ...link,
+    ...safeLink,
+
+    passwordProtected: Boolean(password),
+
     shortUrl: `${env.baseUrl}/${link.slug}`,
   };
 }
 
 async function createLink(userId, data) {
-  const {
-    originalUrl,
-    title,
-    slug,
-    expiresAt,
-    maxClicks,
-    tags,
-  } = data;
+  const { originalUrl, title, slug, expiresAt, maxClicks, tags, password } =
+    data;
 
   const customSlug = slug !== undefined;
 
@@ -45,15 +44,15 @@ async function createLink(userId, data) {
 
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
+      const hashedPassword = password ? await hashPassword(password) : null;
       const link = await prisma.link.create({
         data: {
           originalUrl,
           title: title ?? null,
           slug: finalSlug,
           userId,
-          expiresAt: expiresAt
-            ? new Date(expiresAt)
-            : null,
+          password: hashedPassword,
+          expiresAt: expiresAt ? new Date(expiresAt) : null,
           maxClicks: maxClicks ?? null,
           tags: tags ?? [],
         },
@@ -75,10 +74,7 @@ async function createLink(userId, data) {
     }
   }
 
-  throw new AppError(
-    "Failed to generate unique slug",
-    500
-  );
+  throw new AppError("Failed to generate unique slug", 500);
 }
 
 async function getLinks(userId, options = {}) {
@@ -154,6 +150,7 @@ async function updateLink(linkId, userId, data) {
     "expiresAt",
     "maxClicks",
     "tags",
+    "password",
   ];
 
   const updateData = {};
@@ -165,15 +162,10 @@ async function updateLink(linkId, userId, data) {
   }
 
   if (updateData.expiresAt) {
-    updateData.expiresAt = new Date(
-      updateData.expiresAt
-    );
+    updateData.expiresAt = new Date(updateData.expiresAt);
   }
 
-  if (
-    updateData.slug &&
-    updateData.slug !== existingLink.slug
-  ) {
+  if (updateData.slug && updateData.slug !== existingLink.slug) {
     const slugExists = await prisma.link.findUnique({
       where: {
         slug: updateData.slug,
@@ -182,6 +174,14 @@ async function updateLink(linkId, userId, data) {
 
     if (slugExists) {
       throw new AppError("Slug already exists", 409);
+    }
+  }
+
+  if (updateData.password !== undefined) {
+    if (updateData.password === null) {
+      updateData.password = null;
+    } else {
+      updateData.password = await hashPassword(updateData.password);
     }
   }
 
@@ -241,10 +241,40 @@ async function deleteLink(linkId, userId) {
   };
 }
 
+async function toggleLink(linkId, userId) {
+  const link = await prisma.link.findFirst({
+    where: {
+      id: linkId,
+      userId,
+    },
+  });
+
+  if (!link) {
+    throw new AppError("Link not found", 404);
+  }
+
+  const newStatus = link.status === "DISABLED" ? "ACTIVE" : "DISABLED";
+
+  const updatedLink = await prisma.link.update({
+    where: {
+      id: linkId,
+    },
+
+    data: {
+      status: newStatus,
+    },
+  });
+
+  await redis.del(`link:${link.slug}`);
+
+  return formatLink(updatedLink);
+}
+
 module.exports = {
   createLink,
   getLinks,
   getLinkById,
   updateLink,
   deleteLink,
+  toggleLink,
 };

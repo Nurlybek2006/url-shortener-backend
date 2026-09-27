@@ -15,11 +15,28 @@ function generateToken(userId, role) {
   );
 }
 
+function generateRedirectToken(linkId) {
+  return jwt.sign(
+    {
+      linkId,
+      purpose: "redirect",
+    },
+    env.jwtSecret,
+    {
+      expiresIn: "5m",
+    }
+  );
+}
+
 function verifyToken(token) {
-  return jwt.verify(token, env.jwtSecret);
+  return jwt.verify(
+    token,
+    env.jwtSecret
+  );
 }
 
 module.exports = {
   generateToken,
+  generateRedirectToken,
   verifyToken,
 };

@@ -1,6 +1,10 @@
 const prisma = require("../config/database");
 const redis = require("../config/redis");
 
+const { comparePassword } = require("../utils/bcrypt");
+
+const { generateRedirectToken } = require("../utils/jwt");
+
 const AppError = require("../utils/AppError");
 
 const CACHE_TTL = 60 * 60;
@@ -42,12 +46,7 @@ async function getLinkBySlug(slug) {
   }
 
   // 3. Redis-ке 1 сағатқа сақтаймыз
-  await redis.set(
-    cacheKey,
-    JSON.stringify(link),
-    "EX",
-    CACHE_TTL
-  );
+  await redis.set(cacheKey, JSON.stringify(link), "EX", CACHE_TTL);
 
   return link;
 }
@@ -57,39 +56,23 @@ async function validateLink(link) {
     throw new AppError("Link is disabled", 410);
   }
 
-  if (
-    link.expiresAt &&
-    new Date(link.expiresAt) <= new Date()
-  ) {
+  if (link.expiresAt && new Date(link.expiresAt) <= new Date()) {
     throw new AppError("Link has expired", 410);
   }
 
-  if (
-    link.maxClicks !== null &&
-    link.maxClicks !== undefined
-  ) {
-    const redisCount = await redis.get(
-      `link:${link.slug}:clicks`
-    );
+  if (link.maxClicks !== null && link.maxClicks !== undefined) {
+    const redisCount = await redis.get(`link:${link.slug}:clicks`);
 
     const currentClicks =
-      redisCount !== null
-        ? Number(redisCount)
-        : link.clickCount;
+      redisCount !== null ? Number(redisCount) : link.clickCount;
 
     if (currentClicks >= link.maxClicks) {
-      throw new AppError(
-        "Link click limit has been reached",
-        410
-      );
+      throw new AppError("Link click limit has been reached", 410);
     }
   }
 
   if (link.password) {
-    throw new AppError(
-      "Password verification required",
-      401
-    );
+    throw new AppError("Password verification required", 401);
   }
 
   return true;
@@ -100,11 +83,7 @@ async function incrementClickCount(link) {
 
   // Redis counter әлі жоқ болса,
   // database-тегі clickCount мәнінен бастаймыз.
-  await redis.set(
-    counterKey,
-    String(link.clickCount),
-    "NX"
-  );
+  await redis.set(counterKey, String(link.clickCount), "NX");
 
   const count = await redis.incr(counterKey);
 
@@ -124,9 +103,59 @@ async function resolveRedirect(slug) {
   };
 }
 
+async function verifyLinkPassword(slug, password) {
+  const link = await prisma.link.findUnique({
+    where: {
+      slug,
+    },
+
+    select: {
+      id: true,
+      slug: true,
+      originalUrl: true,
+      password: true,
+      status: true,
+      expiresAt: true,
+      maxClicks: true,
+      clickCount: true,
+    },
+  });
+
+  if (!link) {
+    throw new AppError("Link not found", 404);
+  }
+
+  if (!link.password) {
+    throw new AppError("Link is not password protected", 400);
+  }
+
+  // Password тексермей тұрып қалған шектеулерді тексереміз.
+  if (link.status === "DISABLED") {
+    throw new AppError("Link is disabled", 410);
+  }
+
+  if (link.expiresAt && new Date(link.expiresAt) <= new Date()) {
+    throw new AppError("Link has expired", 410);
+  }
+
+  const isValid = await comparePassword(password, link.password);
+
+  if (!isValid) {
+    throw new AppError("Invalid password", 401);
+  }
+
+  const token = generateRedirectToken(link.id);
+
+  return {
+    link,
+    token,
+  };
+}
+
 module.exports = {
   getLinkBySlug,
   validateLink,
   incrementClickCount,
   resolveRedirect,
+  verifyLinkPassword,
 };
