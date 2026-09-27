@@ -1,11 +1,11 @@
 const prisma = require("../config/database");
 const redis = require("../config/redis");
 
+const AppError = require("../utils/AppError");
+
 const { comparePassword } = require("../utils/bcrypt");
 
 const { generateRedirectToken } = require("../utils/jwt");
-
-const AppError = require("../utils/AppError");
 
 const CACHE_TTL = 60 * 60;
 
@@ -51,7 +51,7 @@ async function getLinkBySlug(slug) {
   return link;
 }
 
-async function validateLink(link) {
+async function validateLink(link, redirectToken = null) {
   if (link.status === "DISABLED") {
     throw new AppError("Link is disabled", 410);
   }
@@ -72,7 +72,21 @@ async function validateLink(link) {
   }
 
   if (link.password) {
-    throw new AppError("Password verification required", 401);
+    if (!redirectToken) {
+      throw new AppError("Password verification required", 401);
+    }
+
+    let decoded;
+
+    try {
+      decoded = verifyToken(redirectToken);
+    } catch (error) {
+      throw new AppError("Invalid or expired redirect token", 401);
+    }
+
+    if (decoded.purpose !== "redirect" || decoded.linkId !== link.id) {
+      throw new AppError("Invalid redirect token", 401);
+    }
   }
 
   return true;
@@ -90,10 +104,10 @@ async function incrementClickCount(link) {
   return count;
 }
 
-async function resolveRedirect(slug) {
+async function resolveRedirect(slug, redirectToken = null) {
   const link = await getLinkBySlug(slug);
 
-  await validateLink(link);
+  await validateLink(link, redirectToken);
 
   const clickCount = await incrementClickCount(link);
 

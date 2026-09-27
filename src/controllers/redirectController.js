@@ -10,11 +10,14 @@ async function redirect(req, res, next) {
   try {
     const { slug } = req.params;
 
-    const { link } = await redirectService.resolveRedirect(slug);
+    const redirectToken = req.query.token || null;
+
+    const { link } = await redirectService.resolveRedirect(slug, redirectToken);
+
+    const { token, ...analyticsQuery } = req.query;
 
     await analyticsQueue.add("track-click", {
       linkId: link.id,
-
       slug: link.slug,
 
       ip: req.ip,
@@ -23,7 +26,7 @@ async function redirect(req, res, next) {
 
       referer: req.headers.referer || req.headers.referrer || null,
 
-      query: req.query,
+      query: analyticsQuery,
     });
 
     return res.redirect(302, link.originalUrl);
