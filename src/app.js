@@ -10,6 +10,7 @@ const authRoutes = require("./routes/authRoutes");
 const linkRoutes = require("./routes/linkRoutes");
 const redirectRoutes = require("./routes/redirectRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
 
@@ -43,6 +44,8 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/links", linkRoutes);
 app.use("/api", analyticsRoutes);
+app.use("/api/admin", adminRoutes);
+
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
