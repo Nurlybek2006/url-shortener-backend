@@ -1,89 +1,48 @@
-const { Worker } = require("bullmq");
-
+﻿const { Worker } = require("bullmq");
 const redis = require("../config/redis");
-const prisma = require("../config/database");
+const logger = require("../utils/logger");
+const { processAnalyticsJob } = require("../utils/analyticsProcessor");
 
-const { parseUserAgent } = require("../utils/userAgent");
+// BullMQ blocking consumers require unlimited retries; API requests do not.
+const workerRedis = redis.duplicate({
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: true,
+  commandTimeout: undefined,
+});
+workerRedis.on("error", (error) => {
+  logger.error("Analytics worker Redis error", { code: error.code, name: error.name });
+});
 
-const { getGeoLocation } = require("../utils/geoip");
-
-const worker = new Worker(
-  "analytics",
-
-  async (job) => {
-    if (job.name !== "track-click") {
-      return;
-    }
-
-    const { linkId, slug, ip, userAgent, referer, query } = job.data;
-
-    const { browser, os, device } = parseUserAgent(userAgent);
-
-    const { country, city } = getGeoLocation(ip);
-
-    const utmSource = query?.utm_source || null;
-
-    const utmMedium = query?.utm_medium || null;
-
-    const utmCampaign = query?.utm_campaign || null;
-
-    await prisma.$transaction([
-      prisma.click.create({
-        data: {
-          linkId,
-          ip: ip || "Unknown",
-          userAgent: userAgent || null,
-
-          browser,
-          os,
-          device,
-
-          country,
-          city,
-
-          referer: referer || null,
-
-          utmSource,
-          utmMedium,
-          utmCampaign,
-        },
-      }),
-
-      prisma.link.update({
-        where: {
-          id: linkId,
-        },
-
-        data: {
-          clickCount: {
-            increment: 1,
-          },
-        },
-      }),
-    ]);
-
-    return {
-      tracked: true,
-      slug,
-    };
-  },
-
-  {
-    connection: redis,
-    concurrency: 20,
-  },
-);
+const worker = new Worker("analytics", processAnalyticsJob, {
+  connection: workerRedis,
+  concurrency: 20,
+});
 
 worker.on("completed", (job) => {
-  console.log(`Analytics completed: ${job.data.slug}`);
+  logger.debug("Analytics completed", { jobId: job.id });
 });
-
 worker.on("failed", (job, error) => {
-  console.error(`Analytics failed: ${job?.data?.slug}`, error.message);
+  logger.error("Analytics failed", { jobId: job?.id, code: error.code, name: error.name });
+});
+worker.on("error", (error) => {
+  logger.error("Analytics worker error", { code: error.code, name: error.name });
 });
 
-worker.on("error", (error) => {
-  console.error("Analytics worker error:", error.message);
-});
+const closeWorker = worker.close.bind(worker);
+let closing;
+worker.close = (force = false) => {
+  if (!closing) {
+    closing = (async () => {
+      try {
+        await closeWorker(force);
+      } finally {
+        // quit can wait forever while reconnecting, so disconnect in that case.
+        if (workerRedis.status === "ready") await workerRedis.quit();
+        else workerRedis.disconnect();
+      }
+    })();
+  }
+  return closing;
+};
 
 module.exports = worker;

@@ -1,17 +1,21 @@
 const Redis = require("ioredis");
 
 const env = require("./env");
+const logger = require("../utils/logger");
 
 const redis = new Redis(env.redisUrl, {
-  maxRetriesPerRequest: null,
+  maxRetriesPerRequest: 1,
+  connectTimeout: 5000,
+  commandTimeout: 5000,
+  enableOfflineQueue: false,
 });
 
 redis.on("connect", () => {
-  console.log("Redis connected");
+  logger.info("Redis connected");
 });
 
 redis.on("error", (error) => {
-  console.error("Redis error:", error.message);
+  logger.error("Redis connection error", { name: error.name, code: error.code });
 });
 
 module.exports = redis;

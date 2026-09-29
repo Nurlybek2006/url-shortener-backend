@@ -9,6 +9,15 @@ const AppError = require("../utils/AppError");
 const { generateUniqueSlug } = require("../utils/slugGenerator");
 
 const { hashPassword } = require("../utils/bcrypt");
+const { removeQRFile } = require("../utils/qrFiles");
+
+const MOVE_COUNTER = `
+  local previous = tonumber(redis.call('GET', KEYS[1])) or 0
+  local baseline = tonumber(ARGV[1])
+  redis.call('SET', KEYS[2], math.max(previous, baseline))
+  redis.call('DEL', KEYS[1], KEYS[3], KEYS[4])
+  return 1
+`;
 
 function formatLink(link) {
   const { password, ...safeLink } = link;
@@ -175,6 +184,9 @@ async function updateLink(linkId, userId, data) {
     if (slugExists) {
       throw new AppError("Slug already exists", 409);
     }
+
+    // A QR encodes the slug, so an old image no longer represents this link.
+    updateData.qrCodeUrl = null;
   }
 
   if (updateData.password !== undefined) {
@@ -204,10 +216,19 @@ async function updateLink(linkId, userId, data) {
     throw error;
   }
 
-  await redis.del(`link:${existingLink.slug}`);
-
   if (updatedLink.slug !== existingLink.slug) {
-    await redis.del(`link:${updatedLink.slug}`);
+    await redis.eval(
+      MOVE_COUNTER,
+      4,
+      `link:${existingLink.slug}:clicks`,
+      `link:${updatedLink.slug}:clicks`,
+      `link:${existingLink.slug}`,
+      `link:${updatedLink.slug}`,
+      String(updatedLink.clickCount),
+    );
+    await removeQRFile(existingLink.qrCodeUrl);
+  } else {
+    await redis.del(`link:${existingLink.slug}`);
   }
 
   return formatLink(updatedLink);
@@ -235,6 +256,7 @@ async function deleteLink(linkId, userId) {
   await redis.del(`link:${link.slug}`);
 
   await redis.del(`link:${link.slug}:clicks`);
+  await removeQRFile(link.qrCodeUrl);
 
   return {
     message: "Link deleted successfully",

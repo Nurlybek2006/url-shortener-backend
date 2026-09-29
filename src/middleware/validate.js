@@ -6,7 +6,8 @@ function validate(req, res, next) {
   if (!errors.isEmpty()) {
     return res.status(400).json({
       success: false,
-      errors: errors.array(),
+      error: "Validation failed",
+      errors: errors.array().map(({ path, location, msg }) => ({ path, location, msg })),
     });
   }
 

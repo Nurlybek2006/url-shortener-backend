@@ -28,7 +28,7 @@ async function getLinkStats(linkId, userId) {
   const redisCount = await redis.get(`link:${link.slug}:clicks`);
 
   const totalClicks =
-    redisCount !== null ? Number(redisCount) : link.clickCount;
+    Math.max(Number(redisCount) || 0, link.clickCount);
 
   const uniqueVisitorsResult = await prisma.$queryRaw`
     SELECT COUNT(DISTINCT "ip")::int AS count

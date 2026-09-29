@@ -5,14 +5,15 @@ const {
   verifyPassword,
 } = require("../controllers/redirectController");
 
-const { verifyPasswordValidator } = require("../validators/linkValidator");
+const { verifyPasswordValidator, redirectValidator } = require("../validators/linkValidator");
+const { redirectLimiter, passwordLimiter } = require("../middleware/rateLimiter");
 
 const validate = require("../middleware/validate");
 
 const router = express.Router();
 
-router.post("/:slug/verify", verifyPasswordValidator, validate, verifyPassword);
+router.post("/:slug/verify", redirectLimiter, passwordLimiter, redirectValidator, verifyPasswordValidator, validate, verifyPassword);
 
-router.get("/:slug", redirect);
+router.get("/:slug", redirectLimiter, redirectValidator, validate, redirect);
 
 module.exports = router;

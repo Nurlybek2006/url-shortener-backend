@@ -2,9 +2,8 @@ const redirectService = require("../services/redirectService");
 
 const analyticsQueue = require("../queues/analyticsQueue");
 
-const { verifyToken } = require("../utils/jwt");
-
-const AppError = require("../utils/AppError");
+const { randomUUID } = require("crypto");
+const { analyticsQuery, sanitizeReferer } = require("../utils/analyticsProcessor");
 
 async function redirect(req, res, next) {
   try {
@@ -14,20 +13,19 @@ async function redirect(req, res, next) {
 
     const { link } = await redirectService.resolveRedirect(slug, redirectToken);
 
-    const { token, ...analyticsQuery } = req.query;
-
+    const clickId = randomUUID();
+    // A timeout may occur after Redis accepted the job. Keep the reservation on
+    // failure so an ambiguous enqueue cannot reopen a maxClicks slot.
     await analyticsQueue.add("track-click", {
+      clickId,
+      clickedAt: new Date().toISOString(),
       linkId: link.id,
       slug: link.slug,
-
       ip: req.ip,
-
-      userAgent: req.headers["user-agent"] || null,
-
-      referer: req.headers.referer || req.headers.referrer || null,
-
-      query: analyticsQuery,
-    });
+      userAgent: req.headers["user-agent"]?.slice(0, 2048) || null,
+      referer: sanitizeReferer(req.headers.referer || req.headers.referrer),
+      query: analyticsQuery(req.query),
+    }, { jobId: clickId });
 
     return res.redirect(302, link.originalUrl);
   } catch (error) {

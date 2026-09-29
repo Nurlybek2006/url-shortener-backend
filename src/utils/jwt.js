@@ -31,7 +31,8 @@ function generateRedirectToken(linkId) {
 function verifyToken(token) {
   return jwt.verify(
     token,
-    env.jwtSecret
+    env.jwtSecret,
+    { algorithms: ["HS256"] }
   );
 }
 

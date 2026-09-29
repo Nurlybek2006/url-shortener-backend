@@ -24,8 +24,7 @@ yarn-error.log*
 # =========================
 # Generated QR codes
 # =========================
-uploads/qr/*
-!uploads/qr/.gitkeep
+uploads/
 
 # =========================
 # Test coverage
@@ -56,3 +55,5 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+.env.*
+!.env.example

@@ -1,6 +1,7 @@
 const { body, param, query } = require("express-validator");
 
 const slugPattern = /^[a-zA-Z0-9_-]{3,50}$/;
+const reservedSlugs = new Set(['api', 'api-docs', 'api-docs.json', 'health', 'ready', 'uploads']);
 
 const createLinkValidator = [
   body("originalUrl")
@@ -11,6 +12,7 @@ const createLinkValidator = [
       protocols: ["http", "https"],
       require_protocol: true,
       require_valid_protocol: true,
+      disallow_auth: true,
     })
     .withMessage("Valid HTTP or HTTPS URL is required"),
 
@@ -29,11 +31,14 @@ const createLinkValidator = [
     .withMessage("Slug must be a string")
     .bail()
     .matches(slugPattern)
-    .withMessage("Slug must be 3-50 characters"),
+    .withMessage("Slug must be 3-50 letters, digits, underscores, or hyphens")
+    .custom((value) => !reservedSlugs.has(value.toLowerCase()))
+    .withMessage("Slug is reserved"),
 
   body("expiresAt")
     .optional({ nullable: true })
-    .isISO8601()
+    .isString().withMessage("Expiry must be an ISO date string").bail()
+    .isISO8601({ strict: true })
     .withMessage("Invalid expiry date")
     .bail()
     .custom((value) => {
@@ -46,7 +51,9 @@ const createLinkValidator = [
 
   body("maxClicks")
     .optional({ nullable: true })
-    .isInt({ min: 1 })
+    .custom((value) => typeof value === "number" || typeof value === "string")
+    .withMessage("Max clicks must be a single integer").bail()
+    .isInt({ min: 1, max: 2147483647 })
     .withMessage("Max clicks must be a positive integer")
     .toInt(),
 
@@ -74,7 +81,9 @@ const createLinkValidator = [
     .withMessage("Password must be a string")
     .bail()
     .isLength({ min: 4, max: 100 })
-    .withMessage("Password must be between 4 and 100 characters"),
+    .withMessage("Password must be between 4 and 100 characters")
+    .custom((value) => Buffer.byteLength(value, "utf8") <= 72)
+    .withMessage("Password must not exceed 72 UTF-8 bytes"),
 ];
 
 const updateLinkValidator = [
@@ -87,6 +96,7 @@ const updateLinkValidator = [
       protocols: ["http", "https"],
       require_protocol: true,
       require_valid_protocol: true,
+      disallow_auth: true,
     })
     .withMessage("Valid HTTP or HTTPS URL is required"),
 
@@ -105,11 +115,14 @@ const updateLinkValidator = [
     .withMessage("Slug must be a string")
     .bail()
     .matches(slugPattern)
-    .withMessage("Slug must be 3-50 characters"),
+    .withMessage("Slug must be 3-50 letters, digits, underscores, or hyphens")
+    .custom((value) => !reservedSlugs.has(value.toLowerCase()))
+    .withMessage("Slug is reserved"),
 
   body("expiresAt")
     .optional({ nullable: true })
-    .isISO8601()
+    .isString().withMessage("Expiry must be an ISO date string").bail()
+    .isISO8601({ strict: true })
     .withMessage("Invalid expiry date")
     .bail()
     .custom((value) => {
@@ -122,7 +135,9 @@ const updateLinkValidator = [
 
   body("maxClicks")
     .optional({ nullable: true })
-    .isInt({ min: 1 })
+    .custom((value) => typeof value === "number" || typeof value === "string")
+    .withMessage("Max clicks must be a single integer").bail()
+    .isInt({ min: 1, max: 2147483647 })
     .withMessage("Max clicks must be a positive integer")
     .toInt(),
 
@@ -150,7 +165,9 @@ const updateLinkValidator = [
     .withMessage("Password must be a string")
     .bail()
     .isLength({ min: 4, max: 100 })
-    .withMessage("Password must be between 4 and 100 characters"),
+    .withMessage("Password must be between 4 and 100 characters")
+    .custom((value) => Buffer.byteLength(value, "utf8") <= 72)
+    .withMessage("Password must not exceed 72 UTF-8 bytes"),
 ];
 
 const linkIdValidator = [param("id").isUUID().withMessage("Invalid link ID")];
@@ -158,12 +175,14 @@ const linkIdValidator = [param("id").isUUID().withMessage("Invalid link ID")];
 const linkListValidator = [
   query("page")
     .optional()
+    .isString().withMessage("Page must be a single value").bail()
     .isInt({ min: 1, max: 1000000 })
     .withMessage("Invalid page")
     .toInt(),
 
   query("limit")
     .optional()
+    .isString().withMessage("Limit must be a single value").bail()
     .isInt({ min: 1, max: 100 })
     .withMessage("Limit must be between 1 and 100")
     .toInt(),
@@ -175,12 +194,16 @@ const verifyPasswordValidator = [
     .withMessage("Password is required")
     .bail()
     .notEmpty()
-    .withMessage("Password is required"),
+    .withMessage("Password is required")
+    .custom((value) => Buffer.byteLength(value, "utf8") <= 72)
+    .withMessage("Password must not exceed 72 UTF-8 bytes"),
 ];
 
 const qrValidator = [
   body("size")
     .optional()
+    .custom((value) => typeof value === "number" || typeof value === "string")
+    .withMessage("QR size must be a single integer").bail()
     .isInt({
       min: 128,
       max: 2048,
@@ -190,16 +213,24 @@ const qrValidator = [
 
   body("darkColor")
     .optional()
+    .isString().withMessage("Dark color must be a string").bail()
     .matches(/^#[0-9A-Fa-f]{6}$/)
     .withMessage("Invalid dark color"),
 
   body("lightColor")
     .optional()
+    .isString().withMessage("Light color must be a string").bail()
     .matches(/^#[0-9A-Fa-f]{6}$/)
     .withMessage("Invalid light color"),
 ];
 
+const redirectValidator = [
+  param("slug").matches(slugPattern).withMessage("Invalid slug"),
+  query("token").optional().isString().withMessage("Token must be a string").bail().isLength({ max: 2048 }).withMessage("Token is too long"),
+];
+
 module.exports = {
+  redirectValidator,
   createLinkValidator,
   updateLinkValidator,
   linkIdValidator,

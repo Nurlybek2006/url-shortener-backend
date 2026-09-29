@@ -7,15 +7,22 @@ services:
     restart: unless-stopped
 
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: Nurlybek060705/
-      POSTGRES_DB: url_shortener
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local .env}
+      POSTGRES_DB: ${POSTGRES_DB:-url_shortener}
 
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   redis:
     image: redis:7
@@ -23,11 +30,55 @@ services:
     restart: unless-stopped
 
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
     volumes:
       - redis_data:/data
 
+    # Keep the existing persistence mode so old /data snapshots load normally.
+    # noeviction prevents Redis from silently dropping BullMQ jobs/click counters.
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    profiles: ["api"]
+    build: .
+    container_name: url-shortener-api
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 35s
+
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL_DOCKER:-}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      CLIENT_URL: ${CLIENT_URL:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    volumes:
+      - api_uploads:/app/uploads
+      - api_logs:/app/logs
+
 volumes:
   postgres_data:
   redis_data:
+  api_uploads:
+  api_logs:
