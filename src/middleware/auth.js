@@ -12,9 +12,16 @@ function auth(req, res, next) {
     const token = authorization.split(/\s+/)[1];
 
     const decoded = verifyToken(token);
-    if (!decoded || typeof decoded.userId !== "string" ||
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded.userId) ||
-        !["USER", "ADMIN"].includes(decoded.role) || decoded.purpose || !Number.isInteger(decoded.exp)) {
+    if (
+      !decoded ||
+      typeof decoded.userId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        decoded.userId,
+      ) ||
+      !["USER", "ADMIN"].includes(decoded.role) ||
+      decoded.purpose ||
+      !Number.isInteger(decoded.exp)
+    ) {
       throw new AppError("Invalid token", 401);
     }
 
