@@ -1,9 +1,6 @@
 const prisma = require("../config/database");
 
-const {
-  hashPassword,
-  comparePassword,
-} = require("../utils/bcrypt");
+const { hashPassword, comparePassword } = require("../utils/bcrypt");
 
 const { generateToken } = require("../utils/jwt");
 
@@ -59,10 +56,7 @@ async function login(data) {
     throw new AppError("Invalid email or password", 401);
   }
 
-  const isPasswordValid = await comparePassword(
-    password,
-    user.password
-  );
+  const isPasswordValid = await comparePassword(password, user.password);
 
   if (!isPasswordValid) {
     throw new AppError("Invalid email or password", 401);
@@ -100,8 +94,6 @@ async function getProfile(userId) {
   if (!user) {
     throw new AppError("User not found", 404);
   }
-  
-  
 
   return user;
 }
