@@ -33,6 +33,7 @@ async function generateUniqueSlug(maxAttempts = 5) {
       return slug;
     }
   }
+  
 
   for (let i = 0; i < maxAttempts; i++) {
     const slug = generateRandomSlug(SLUG_LENGTH + 2);
